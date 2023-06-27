@@ -1,87 +1,63 @@
+use std::collections::HashMap;
 use std::rc::Rc;
-use std::mem;
-use super::types::*;
+use std::fmt;
+use std::fmt::Formatter;
 
-pub fn pop_n(state: &mut GState, n: usize) {
-  state.stack.truncate(state.stack.len() - n);
+pub type UBInt = i64;
+
+#[derive(Debug,Copy,Clone)]
+pub enum GCode {
+
 }
 
-pub fn push_int(state: &mut GState, int_val: UBInt) {
-  state.stack.push(Rc::from(GNode::GInt(int_val)));
+#[derive(Clone)]
+pub enum GNode {
+  GInt(UBInt),
 }
 
-pub fn push_stack(state: &mut GState, i: usize) {
-  let node = state.stack.get(get_stack_index(state, i)).unwrap();
-  state.stack.push(node.clone());
+pub struct DNode {
+  pub stack: GStack,
+  pub prog: GProg
 }
 
-pub fn push_proc(state: &mut GState, proc: fn(&mut GState)) {
-  state.stack.push(Rc::from(GNode::GProc(proc)));
+pub type GStack = Vec<Rc<GNode>>;
+pub type GGraph = HashMap<String, GNode>;
+pub type GProg = Vec<GCode>;
+pub type GDump = Vec<DNode>;
+
+pub struct State {
+  pub stack: GStack,
+  pub graph: GGraph,
+  pub prog: GProg,
+  pub dump: GDump
 }
 
-pub fn mk_ap(state: &mut GState) {
-  let arg: Rc<GNode> = state.stack.pop().unwrap();
-  let fun: Rc<GNode> = state.stack.pop().unwrap();
+impl State {
+  pub fn new() -> State {
+    return State {
+      stack: Vec::new(),
+      graph: HashMap::new(),
+      prog: Vec::new(),
+      dump: Vec::new()
+    };
+  }
 
-  state.stack.push(Rc::from(GNode::GAp(fun, arg)))
-}
+  pub fn push_int(self: &mut State, int_val: UBInt) {
+    self.stack.push(Rc::from(GNode::GInt(int_val)));
+  }
 
-pub fn update(state: &mut GState, i: usize) {
-  let s_idx = get_stack_index(state, i);
-  let node = state.stack.pop().unwrap();
-
-  state.stack[s_idx] = node;
-}
-
-pub fn unwind(state: &mut GState) {
-  panic!("NOT IMPLEMENTED");
-}
-
-pub fn get_stack_index(state: &GState, i: usize) -> usize {
-  return state.stack.len() - 1 - i;
-}
-
-pub fn eval(state: &mut GState) {
-  panic!("NOT IMPLEMENTED");
-}
-
-pub fn g_return(state: &mut GState) {
-  panic!("NOT IMPLEMENTED");
-}
-
-// TODO - should modify in place (would require a modifiable Rc<RefCell<_>>)
-pub fn neg(state: &mut GState) {
-  // neg impl
-  let arg: Rc<GNode> = state.stack.pop().unwrap();
-
-  // let arg_val = *arg;
-  match &*arg {
-    GNode::GInt(i) => {
-      state.stack.push(Rc::from(GNode::GInt(-i)));
-    }
-    v => { panic!("NEG called on non-numeric node: {:?}", v); }
+  pub fn print_top(self: &State) {
+    let x: &Rc<GNode> = self.stack.get(self.stack.len() - 1).unwrap();
+    println!("{:?}", x);
   }
 }
 
-pub fn add(state: &mut GState) {
-  let x = state.stack.pop().unwrap();
-  let y = state.stack.pop().unwrap();
-
-  // let arg_val = *arg;
-  match &*x {
-    GNode::GInt(x_val) => {
-      match &*y {
-        GNode::GInt(y_val) => {
-          state.stack.push(Rc::from(GNode::GInt(x_val + y_val)));
-        }
-        v => { panic!("ADD called on non-numeric node: {:?}", v); }
+impl fmt::Debug for GNode {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    match self {
+      GNode::GInt(i) => {
+        write!(f, "Int({})", i)
       }
     }
-    v => { panic!("ADD called on non-numeric node: {:?}", v); }
   }
-}
-
-pub fn print(state: &GState) {
-  let x = state.stack.get(state.stack.len()).unwrap();
-  println!("{:?}", x);
 }
