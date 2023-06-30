@@ -41,7 +41,7 @@ impl fmt::Debug for Node {
     }
 }
 
-pub fn push_int(state: &mut State, int_val: i64) {
+pub fn int(state: &mut State, int_val: i64) {
     state.stack.push(Box::from(Node::Int(int_val)));
 }
 
@@ -51,7 +51,7 @@ pub fn add(state: &mut State) {
 
     if let Node::Int(vl) = el {
         if let Node::Int(vr) = er {
-            push_int(state, vl + vr)
+            int(state, vl + vr)
         } else {
             panic!("Expecting integer for right operand: {:?}", er)
         }
@@ -66,7 +66,7 @@ pub fn sub(state: &mut State) {
 
     if let Node::Int(vl) = el {
         if let Node::Int(vr) = er {
-            push_int(state, vl - vr)
+            int(state, vl - vr)
         } else {
             panic!("Expecting integer for right operand: {:?}", er)
         }
@@ -81,7 +81,7 @@ pub fn mul(state: &mut State) {
 
     if let Node::Int(vl) = el {
         if let Node::Int(vr) = er {
-            push_int(state, vl * vr)
+            int(state, vl * vr)
         } else {
             panic!("Expecting integer for right operand: {:?}", er)
         }
@@ -96,7 +96,7 @@ pub fn div(state: &mut State) {
 
     if let Node::Int(vl) = el {
         if let Node::Int(vr) = er {
-            push_int(state, vl / vr)
+            int(state, vl / vr)
         } else {
             panic!("Expecting integer for right operand: {:?}", er)
         }
