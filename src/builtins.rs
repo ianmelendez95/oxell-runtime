@@ -24,13 +24,58 @@ impl State {
         self.stack.push(Box::from(Node::Int(int_val)));
     }
 
-    pub fn sum(self: &mut State) {
-        let er: Node = *self.stack.pop().unwrap();
+    pub fn add(self: &mut State) {
         let el: Node = *self.stack.pop().unwrap();
+        let er: Node = *self.stack.pop().unwrap();
 
         if let Node::Int(vl) = el {
             if let Node::Int(vr) = er {
                 self.push_int(vl + vr)
+            } else {
+                panic!("Expecting integer for right operand: {:?}", er)
+            }
+        } else {
+            panic!("Expecting integer for left operand: {:?}", el)
+        }
+    }
+
+    pub fn sub(self: &mut State) {
+        let el: Node = *self.stack.pop().unwrap();
+        let er: Node = *self.stack.pop().unwrap();
+
+        if let Node::Int(vl) = el {
+            if let Node::Int(vr) = er {
+                self.push_int(vl - vr)
+            } else {
+                panic!("Expecting integer for right operand: {:?}", er)
+            }
+        } else {
+            panic!("Expecting integer for left operand: {:?}", el)
+        }
+    }
+
+    pub fn mul(self: &mut State) {
+        let el: Node = *self.stack.pop().unwrap();
+        let er: Node = *self.stack.pop().unwrap();
+
+        if let Node::Int(vl) = el {
+            if let Node::Int(vr) = er {
+                self.push_int(vl * vr)
+            } else {
+                panic!("Expecting integer for right operand: {:?}", er)
+            }
+        } else {
+            panic!("Expecting integer for left operand: {:?}", el)
+        }
+    }
+
+    pub fn div(self: &mut State) {
+        let el: Node = *self.stack.pop().unwrap();
+        let er: Node = *self.stack.pop().unwrap();
+
+        if let Node::Int(vl) = el {
+            if let Node::Int(vr) = er {
+                self.push_int(vl / vr)
             } else {
                 panic!("Expecting integer for right operand: {:?}", er)
             }
