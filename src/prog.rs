@@ -1,13 +1,14 @@
+use crate::builtins;
 use crate::builtins::State;
 
 pub fn prog(state: &mut State) {
-    state.push_int(13);  // 13
-    state.push_int(2);   // 2 13
-    state.push_int(42);  // 42 2 13
-    state.push_int(9);   // 9 42 2 13
-    state.mul();                 // 378 2 13
-    state.div();
-    state.push_int(23);
-    state.add();
-    state.sub();
+    builtins::push_int(state, 13);  
+    builtins::push_int(state, 2);   
+    builtins::push_int(state, 42);  
+    builtins::push_int(state, 9);   
+    builtins::mul(state);         
+    builtins::div(state);
+    builtins::push_int(state, 23);
+    builtins::add(state);
+    builtins::sub(state);
 }

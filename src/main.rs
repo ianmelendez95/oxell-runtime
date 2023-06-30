@@ -7,5 +7,5 @@ use builtins::State;
 fn main() {
   let mut state: State = State::new();
   prog(&mut state);
-  state.print_top();
+  builtins::print_top(&mut state);
 }
