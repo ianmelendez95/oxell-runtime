@@ -4,10 +4,10 @@ use std::rc::Rc;
 
 #[derive(Clone)]
 pub enum Node {
-    Int(i64),
+    Int(i64)
 }
 
-pub type Stack = Vec<Rc<Node>>;
+pub type Stack = Vec<Box<Node>>;
 
 pub struct State {
     pub stack: Stack,
@@ -21,11 +21,26 @@ impl State {
     }
 
     pub fn push_int(self: &mut State, int_val: i64) {
-        self.stack.push(Rc::from(Node::Int(int_val)));
+        self.stack.push(Box::from(Node::Int(int_val)));
+    }
+
+    pub fn sum(self: &mut State) {
+        let er: Node = *self.stack.pop().unwrap();
+        let el: Node = *self.stack.pop().unwrap();
+
+        if let Node::Int(vl) = el {
+            if let Node::Int(vr) = er {
+                self.push_int(vl + vr)
+            } else {
+                panic!("Expecting integer for right operand: {:?}", er)
+            }
+        } else {
+            panic!("Expecting integer for left operand: {:?}", el)
+        }
     }
 
     pub fn print_top(self: &State) {
-        let x: &Rc<Node> = self.stack.get(self.stack.len() - 1).unwrap();
+        let x: &Node = self.stack.get(self.stack.len() - 1).unwrap();
         println!("{}", x);
     }
 }
