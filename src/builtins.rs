@@ -1,63 +1,51 @@
-use std::collections::HashMap;
-use std::rc::Rc;
 use std::fmt;
 use std::fmt::Formatter;
-
-pub type UBInt = i64;
-
-#[derive(Debug,Copy,Clone)]
-pub enum GCode {
-
-}
+use std::rc::Rc;
 
 #[derive(Clone)]
-pub enum GNode {
-  GInt(UBInt),
+pub enum Node {
+    Int(i64),
 }
 
-pub struct DNode {
-  pub stack: GStack,
-  pub prog: GProg
-}
-
-pub type GStack = Vec<Rc<GNode>>;
-pub type GGraph = HashMap<String, GNode>;
-pub type GProg = Vec<GCode>;
-pub type GDump = Vec<DNode>;
+pub type Stack = Vec<Rc<Node>>;
 
 pub struct State {
-  pub stack: GStack,
-  pub graph: GGraph,
-  pub prog: GProg,
-  pub dump: GDump
+    pub stack: Stack,
 }
 
 impl State {
-  pub fn new() -> State {
-    return State {
-      stack: Vec::new(),
-      graph: HashMap::new(),
-      prog: Vec::new(),
-      dump: Vec::new()
-    };
-  }
+    pub fn new() -> State {
+        return State {
+            stack: Vec::new()
+        };
+    }
 
-  pub fn push_int(self: &mut State, int_val: UBInt) {
-    self.stack.push(Rc::from(GNode::GInt(int_val)));
-  }
+    pub fn push_int(self: &mut State, int_val: i64) {
+        self.stack.push(Rc::from(Node::Int(int_val)));
+    }
 
-  pub fn print_top(self: &State) {
-    let x: &Rc<GNode> = self.stack.get(self.stack.len() - 1).unwrap();
-    println!("{:?}", x);
-  }
+    pub fn print_top(self: &State) {
+        let x: &Rc<Node> = self.stack.get(self.stack.len() - 1).unwrap();
+        println!("{}", x);
+    }
 }
 
-impl fmt::Debug for GNode {
-  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-    match self {
-      GNode::GInt(i) => {
-        write!(f, "Int({})", i)
-      }
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Node::Int(i) => {
+                write!(f, "{}", i)
+            }
+        }
     }
-  }
+}
+
+impl fmt::Debug for Node {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Node::Int(i) => {
+                write!(f, "Int({})", i)
+            }
+        }
+    }
 }
