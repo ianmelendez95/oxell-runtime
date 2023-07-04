@@ -1,8 +1,7 @@
 use crate::builtins::*;
 
 pub fn prog() -> Node {
-    let x: Node = thunk(let_x_1_5);
-    return add(x, int(3));
+    return sub(add(int(23), div(mul(int(9), int(42)), int(2))), int(13));
 }
 
 fn let_x_1_5() -> Node {

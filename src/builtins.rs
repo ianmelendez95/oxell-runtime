@@ -85,19 +85,37 @@ pub fn thunk(tfun: fn() -> Node) -> Node {
     return Node::ThunkRef(Box::from(Thunk::UThunk(tfun)));
 }
 
-pub fn add(nl: Node, nr: Node) -> Node {
-    let vl: Node = nl.eval();
-    let vr: Node = nr.eval();
+macro_rules! bin_arith {
+    ($nl:ident, $nr:ident, $op:tt) => {
+        let vl: Node = $nl.eval();
+        let vr: Node = $nr.eval();
 
-    if let Node::Int(vl) = vl {
-        if let Node::Int(vr) = vr {
-            return Node::Int(vl + vr);
+        if let Node::Int(vl) = vl {
+            if let Node::Int(vr) = vr {
+                return Node::Int(vl $op vr);
+            } else {
+                panic!("Expecting integer for right operand: {:?}", vr)
+            }
         } else {
-            panic!("Expecting integer for right operand: {:?}", vr)
+            panic!("Expecting integer for left operand: {:?}", vl)
         }
-    } else {
-        panic!("Expecting integer for left operand: {:?}", vl)
-    }
+    };
+}
+
+pub fn add(nl: Node, nr: Node) -> Node {
+    bin_arith!(nl, nr, +);
+}
+
+pub fn sub(nl: Node, nr: Node) -> Node {
+    bin_arith!(nl, nr, -);
+}
+
+pub fn div(nl: Node, nr: Node) -> Node {
+    bin_arith!(nl, nr, /);
+}
+
+pub fn mul(nl: Node, nr: Node) -> Node {
+    bin_arith!(nl, nr, *);
 }
 
 // pub fn add(state: &mut State) {
