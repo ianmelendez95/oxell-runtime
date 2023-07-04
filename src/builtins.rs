@@ -8,6 +8,22 @@ pub enum Node {
     ThunkRef(Box<Thunk>)
 }
 
+impl Node {
+    pub fn eval(self: Node) -> Node {
+        match self {
+            Node::Int(_) => self,
+            Node::ThunkRef(t) => {
+                match *t {
+                    Thunk::UThunk(func) => {
+                        return func();
+                    },
+                    Thunk::EThunk(val) => val,
+                }
+            }
+        }
+    }
+}
+
 pub type Stack = Vec<Node>;
 
 pub struct State {
@@ -55,19 +71,23 @@ impl fmt::Debug for Node {
 impl fmt::Debug for Thunk {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Thunk::UThunk(func) => write!(f, "#[UNEVALED]"),
+            Thunk::UThunk(_) => write!(f, "#[UNEVALED]"),
             Thunk::EThunk(val) => write!(f, "#[{:?}]", val),
         }
     }
 }
 
-pub fn int(state: &mut State, int_val: i64) {
-    state.stack.push(Node::Int(int_val));
+pub fn int(int_val: i64) -> Node {
+    return Node::Int(int_val);
+}
+
+pub fn thunk(tfun: fn() -> Node) -> Node {
+    return Node::ThunkRef(Box::from(Thunk::UThunk(tfun)));
 }
 
 pub fn add(nl: Node, nr: Node) -> Node {
-    let vl: Node = eval(nl);
-    let vr: Node = eval(nr);
+    let vl: Node = nl.eval();
+    let vr: Node = nr.eval();
 
     if let Node::Int(vl) = vl {
         if let Node::Int(vr) = vr {
@@ -77,20 +97,6 @@ pub fn add(nl: Node, nr: Node) -> Node {
         }
     } else {
         panic!("Expecting integer for left operand: {:?}", vl)
-    }
-}
-
-pub fn eval(node: Node) -> Node {
-    match node {
-        Node::Int(_) => node,
-        Node::ThunkRef(t) => {
-            match *t {
-                Thunk::UThunk(func) => {
-                    return func();
-                },
-                Thunk::EThunk(val) => val,
-            }
-        }
     }
 }
 
@@ -112,50 +118,50 @@ pub fn eval(node: Node) -> Node {
 //     }
 // }
 
-pub fn sub(state: &mut State) {
-    let el: Node = state.stack.pop().unwrap();
-    let er: Node = state.stack.pop().unwrap();
+// pub fn sub(state: &mut State) -> Node {
+//     let el: Node = state.stack.pop().unwrap();
+//     let er: Node = state.stack.pop().unwrap();
 
-    if let Node::Int(vl) = el {
-        if let Node::Int(vr) = er {
-            int(state, vl - vr)
-        } else {
-            panic!("Expecting integer for right operand: {:?}", er)
-        }
-    } else {
-        panic!("Expecting integer for left operand: {:?}", el)
-    }
-}
+//     if let Node::Int(vl) = el {
+//         if let Node::Int(vr) = er {
+//             int(vl - vr)
+//         } else {
+//             panic!("Expecting integer for right operand: {:?}", er)
+//         }
+//     } else {
+//         panic!("Expecting integer for left operand: {:?}", el)
+//     }
+// }
 
-pub fn mul(state: &mut State) {
-    let el: Node = state.stack.pop().unwrap();
-    let er: Node = state.stack.pop().unwrap();
+// pub fn mul(state: &mut State) {
+//     let el: Node = state.stack.pop().unwrap();
+//     let er: Node = state.stack.pop().unwrap();
 
-    if let Node::Int(vl) = el {
-        if let Node::Int(vr) = er {
-            int(state, vl * vr)
-        } else {
-            panic!("Expecting integer for right operand: {:?}", er)
-        }
-    } else {
-        panic!("Expecting integer for left operand: {:?}", el)
-    }
-}
+//     if let Node::Int(vl) = el {
+//         if let Node::Int(vr) = er {
+//             int(state, vl * vr)
+//         } else {
+//             panic!("Expecting integer for right operand: {:?}", er)
+//         }
+//     } else {
+//         panic!("Expecting integer for left operand: {:?}", el)
+//     }
+// }
 
-pub fn div(state: &mut State) {
-    let el: Node = state.stack.pop().unwrap();
-    let er: Node = state.stack.pop().unwrap();
+// pub fn div(state: &mut State) {
+//     let el: Node = state.stack.pop().unwrap();
+//     let er: Node = state.stack.pop().unwrap();
 
-    if let Node::Int(vl) = el {
-        if let Node::Int(vr) = er {
-            int(state, vl / vr)
-        } else {
-            panic!("Expecting integer for right operand: {:?}", er)
-        }
-    } else {
-        panic!("Expecting integer for left operand: {:?}", el)
-    }
-}
+//     if let Node::Int(vl) = el {
+//         if let Node::Int(vr) = er {
+//             int(state, vl / vr)
+//         } else {
+//             panic!("Expecting integer for right operand: {:?}", er)
+//         }
+//     } else {
+//         panic!("Expecting integer for left operand: {:?}", el)
+//     }
+// }
 
 // pub fn thunk(state: &mut State, func: fn(&mut State)) {
 //     state.stack.push(Node::ThunkRef(Box::from(Thunk::UThunk(func))));
