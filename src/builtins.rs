@@ -1,6 +1,5 @@
 use std::fmt;
 use std::fmt::Formatter;
-use std::rc::Rc;
 
 #[derive(Clone)]
 pub enum Node {
