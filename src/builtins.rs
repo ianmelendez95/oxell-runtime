@@ -30,8 +30,8 @@ impl Node {
     fn reduce(&self) {
         if let Node::ThunkRef(t_ref) = self {
             RefMut::map(t_ref.as_ref().borrow_mut(), |t_mut| {
-                if let Thunk::UThunk(eval) = t_mut {
-                    *t_mut = Thunk::EThunk(eval.eval_thunk().eval());
+                if let Thunk::UThunk(thunk) = t_mut {
+                    *t_mut = Thunk::EThunk(thunk.eval_thunk().eval());
                     t_mut
                 } else {
                     t_mut  // noop
