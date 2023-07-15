@@ -120,6 +120,24 @@ macro_rules! bin_arith {
     };
 }
 
+pub struct TracedThunk {
+    name: String,
+    value: Node
+}
+
+impl ThunkEval for TracedThunk {
+    fn eval_thunk(&self) -> Node {
+        println!("Evaling: {}", self.name);
+        self.value.clone()
+    }
+}
+
+impl TracedThunk {
+    pub fn new(name: String, value: Node) -> Node {
+        thunk(Box::new(TracedThunk { name, value }))
+    }
+}
+
 macro_rules! bin_thunk {
     ($thunk_name:ident, $eval_fn:ident, $fn_name:ident) => {
         struct $thunk_name {
