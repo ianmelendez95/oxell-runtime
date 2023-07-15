@@ -31,12 +31,16 @@ impl Node {
         if let Node::ThunkRef(t_ref) = self {
             RefMut::map(t_ref.as_ref().borrow_mut(), |t_mut| {
                 if let Thunk::UThunk(eval) = t_mut {
-                    *t_mut = Thunk::EThunk(eval.eval());
+                    *t_mut = Thunk::EThunk(eval.eval_thunk().eval());
                     t_mut
                 } else {
                     t_mut  // noop
                 }
             });
+
+            if let Thunk::UThunk(_) = &*t_ref.borrow() {
+                self.reduce();
+            }
         }
     }
 }
@@ -47,7 +51,7 @@ pub enum Thunk {
 }
 
 pub trait ThunkEval {
-    fn eval(&self) -> Node;
+    fn eval_thunk(&self) -> Node;
 }
 
 impl fmt::Display for Node {
@@ -124,7 +128,7 @@ macro_rules! bin_thunk {
         }
 
         impl ThunkEval for $thunk_name {
-            fn eval(&self) -> Node {
+            fn eval_thunk(&self) -> Node {
                 $eval_fn(self.nl.clone(), self.nr.clone())
             }
         }

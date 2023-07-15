@@ -4,5 +4,5 @@ mod builtins;
 use prog::prog;
 
 fn main() {
-  println!("{}", prog());
+  println!("{}", prog().eval());
 }
