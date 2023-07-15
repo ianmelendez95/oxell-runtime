@@ -96,11 +96,11 @@ impl fmt::Debug for Thunk {
 
 
 pub fn int(int_val: i64) -> Node {
-    return Node::Int(int_val);
+    Node::Int(int_val)
 }
 
 pub fn thunk(boxed_t: Box<dyn ThunkEval>) -> Node {
-    return Node::ThunkRef(Rc::new(RefCell::new(Thunk::UThunk(boxed_t))));
+    Node::ThunkRef(Rc::new(RefCell::new(Thunk::UThunk(boxed_t))))
 }
 
 macro_rules! bin_arith {
