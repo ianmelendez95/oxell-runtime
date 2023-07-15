@@ -1,46 +1,53 @@
 use std::fmt;
 use std::fmt::Formatter;
+use std::rc::Rc;
+use std::cell::RefCell;
+use std::cell::RefMut;
 
 #[derive(Clone)]
 pub enum Node {
     Int(i64),
-    ThunkRef(Box<Thunk>)
+    ThunkRef(Rc<RefCell<Thunk>>)
 }
 
 impl Node {
-    pub fn eval(self: Node) -> Node {
+    pub fn eval(self) -> Node {
+        self.reduce();
+
         match self {
             Node::Int(_) => self,
-            Node::ThunkRef(t) => {
-                match *t {
-                    Thunk::UThunk(func) => {
-                        return func();
-                    },
-                    Thunk::EThunk(val) => val,
+            Node::ThunkRef(t_ref) => {
+                match &*t_ref.borrow() {
+                    Thunk::UThunk(_) => panic!(),
+                    Thunk::EThunk(value) => {
+                        value.clone()
+                    }
                 }
             }
         }
     }
+
+    fn reduce(&self) {
+        if let Node::ThunkRef(t_ref) = self {
+            RefMut::map(t_ref.as_ref().borrow_mut(), |t_mut| {
+                if let Thunk::UThunk(eval) = t_mut {
+                    *t_mut = Thunk::EThunk(eval.eval());
+                    t_mut
+                } else {
+                    t_mut  // noop
+                }
+            });
+        }
+    }
 }
 
-pub type Stack = Vec<Node>;
-
-pub struct State {
-    pub stack: Stack,
-}
-
-#[derive(Clone)]
 pub enum Thunk {
-    UThunk(fn() -> Node),
+    UThunk(Box<dyn ThunkEval>),
     EThunk(Node)
 }
 
-impl State {
-    pub fn new() -> State {
-        return State {
-            stack: Vec::new()
-        };
-    }
+pub trait ThunkEval {
+    fn eval(&self) -> Node;
 }
 
 impl fmt::Display for Node {
@@ -49,7 +56,9 @@ impl fmt::Display for Node {
             Node::Int(i) => {
                 write!(f, "{}", i)
             }
-            Node::ThunkRef(t) => unreachable!("Asked to display thunk: {:?}", t), 
+            Node::ThunkRef(t) => {
+                unreachable!("Asked to display thunk: {:?}", (*t).borrow());
+            }, 
         }
     }
 }
@@ -61,7 +70,7 @@ impl fmt::Debug for Node {
                 write!(f, "Int({})", i)
             }, 
             Node::ThunkRef(t) => {
-                write!(f, "{:?}", t)
+                write!(f, "{:?}", (*t).borrow())
             }
         }
     }
@@ -76,12 +85,18 @@ impl fmt::Debug for Thunk {
     }
 }
 
+
+/* ***************** *
+ * Builtin Functions *
+ * ***************** */
+
+
 pub fn int(int_val: i64) -> Node {
     return Node::Int(int_val);
 }
 
-pub fn thunk(tfun: fn() -> Node) -> Node {
-    return Node::ThunkRef(Box::from(Thunk::UThunk(tfun)));
+pub fn thunk(boxed_t: Box<dyn ThunkEval>) -> Node {
+    return Node::ThunkRef(Rc::new(RefCell::new(Thunk::UThunk(boxed_t))));
 }
 
 macro_rules! bin_arith {
@@ -115,93 +130,4 @@ pub fn div(nl: Node, nr: Node) -> Node {
 
 pub fn mul(nl: Node, nr: Node) -> Node {
     bin_arith!(nl, nr, *);
-}
-
-// pub fn add(state: &mut State) {
-//     let nl: Node = state.stack.pop().unwrap();
-//     let nr: Node = state.stack.pop().unwrap();
-
-//     let vl: Node = eval(state, nl);
-//     let vr: Node = eval(state, nr);
-
-//     if let Node::Int(vl) = vl {
-//         if let Node::Int(vr) = vr {
-//             int(state, vl + vr)
-//         } else {
-//             panic!("Expecting integer for right operand: {:?}", vr)
-//         }
-//     } else {
-//         panic!("Expecting integer for left operand: {:?}", vl)
-//     }
-// }
-
-// pub fn sub(state: &mut State) -> Node {
-//     let el: Node = state.stack.pop().unwrap();
-//     let er: Node = state.stack.pop().unwrap();
-
-//     if let Node::Int(vl) = el {
-//         if let Node::Int(vr) = er {
-//             int(vl - vr)
-//         } else {
-//             panic!("Expecting integer for right operand: {:?}", er)
-//         }
-//     } else {
-//         panic!("Expecting integer for left operand: {:?}", el)
-//     }
-// }
-
-// pub fn mul(state: &mut State) {
-//     let el: Node = state.stack.pop().unwrap();
-//     let er: Node = state.stack.pop().unwrap();
-
-//     if let Node::Int(vl) = el {
-//         if let Node::Int(vr) = er {
-//             int(state, vl * vr)
-//         } else {
-//             panic!("Expecting integer for right operand: {:?}", er)
-//         }
-//     } else {
-//         panic!("Expecting integer for left operand: {:?}", el)
-//     }
-// }
-
-// pub fn div(state: &mut State) {
-//     let el: Node = state.stack.pop().unwrap();
-//     let er: Node = state.stack.pop().unwrap();
-
-//     if let Node::Int(vl) = el {
-//         if let Node::Int(vr) = er {
-//             int(state, vl / vr)
-//         } else {
-//             panic!("Expecting integer for right operand: {:?}", er)
-//         }
-//     } else {
-//         panic!("Expecting integer for left operand: {:?}", el)
-//     }
-// }
-
-// pub fn thunk(state: &mut State, func: fn(&mut State)) {
-//     state.stack.push(Node::ThunkRef(Box::from(Thunk::UThunk(func))));
-// }
-
-// pub fn eval(state: &mut State, node: Node) -> Node {
-//     match node {
-//         Node::Int(_) => node,
-//         Node::ThunkRef(t) => {
-//             match *t {
-//                 Thunk::UThunk(func) => {
-//                     // TODO: implement reuse
-//                     let mut thunk_state = State::new();
-//                     func(&mut thunk_state);
-//                     return thunk_state.stack.pop().unwrap();
-//                 },
-//                 Thunk::EThunk(val) => val,
-//             }
-//         }
-//     }
-// }
-
-pub fn print_top(state: &State) {
-    let x: &Node = state.stack.get(state.stack.len() - 1).unwrap();
-    println!("{}", x);
 }
