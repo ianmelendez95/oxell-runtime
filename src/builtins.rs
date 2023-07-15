@@ -116,18 +116,43 @@ macro_rules! bin_arith {
     };
 }
 
-pub fn add(nl: Node, nr: Node) -> Node {
+macro_rules! bin_thunk {
+    ($thunk_name:ident, $eval_fn:ident, $fn_name:ident) => {
+        struct $thunk_name {
+            nl: Node,
+            nr: Node
+        }
+
+        impl ThunkEval for $thunk_name {
+            fn eval(&self) -> Node {
+                $eval_fn(self.nl.clone(), self.nr.clone())
+            }
+        }
+
+        pub fn $fn_name(nl: Node, nr: Node) -> Node {
+            thunk(Box::new($thunk_name { nl, nr }))
+        }
+    }
+}
+
+bin_thunk!(AddThunk, eval_add, add);
+bin_thunk!(SubThunk, eval_sub, sub);
+bin_thunk!(DivThunk, eval_div, div);
+bin_thunk!(MulThunk, eval_mul, mul);
+
+
+fn eval_add(nl: Node, nr: Node) -> Node {
     bin_arith!(nl, nr, +);
 }
 
-pub fn sub(nl: Node, nr: Node) -> Node {
+fn eval_sub(nl: Node, nr: Node) -> Node {
     bin_arith!(nl, nr, -);
 }
 
-pub fn div(nl: Node, nr: Node) -> Node {
+fn eval_div(nl: Node, nr: Node) -> Node {
     bin_arith!(nl, nr, /);
 }
 
-pub fn mul(nl: Node, nr: Node) -> Node {
+fn eval_mul(nl: Node, nr: Node) -> Node {
     bin_arith!(nl, nr, *);
 }
