@@ -6,6 +6,7 @@ use std::cell::RefMut;
 use crate::gc::*;
 
 pub struct State {
+    alloc: GcAlloc,
     pub stack: Stack
 }
 
@@ -14,6 +15,7 @@ pub type StateFn = fn(state: &mut State);
 impl State {
     pub fn new() -> Self {
         State {
+            alloc: GcAlloc::new(),
             stack: Vec::new()
         }
     }
@@ -30,7 +32,7 @@ pub struct FnDef {
 pub enum Node {
     Int(i64),
     FnDef(FnDef),
-    App(Box<Node>, Box<Node>),
+    App(Gc<Node>, Gc<Node>),
     ThunkRef(Rc<RefCell<Thunk>>)
 }
 
@@ -137,7 +139,24 @@ impl State {
         let nl = self.stack.pop().unwrap();
         let nr = self.stack.pop().unwrap();
 
-        self.stack.push(Node::App(Box::new(nl), Box::new(nr)));
+        self.stack.push(Node::App(
+            self.alloc.new_node(nl),
+            self.alloc.new_node(nr)
+        ));
+    }
+
+    pub fn eval(&mut self) {
+        let top = self.stack.pop().unwrap();
+        if let Node::App(nl, nr) = top {
+            match nl.as_ref() {
+                Node::Int(_) => todo!(),
+                Node::FnDef(_) => todo!(),
+                Node::App(_, _) => todo!(),
+                Node::ThunkRef(_) => todo!(),
+            }
+        } else {
+            self.stack.push(top);
+        }
     }
 
     pub fn unwind(&mut self) {
