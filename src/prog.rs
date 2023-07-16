@@ -18,7 +18,10 @@
 
 use crate::builtins::*;
 
-pub fn prog() -> Node {
-    let x: Node = add(int(1), int(2));
-    return add(add(int(3), x), int(4));
+pub fn prog(state: &mut State) {
+    state.push_int(13);
+    state.push_int(42);
+    state.push_fn(FN_ADD);
+    state.app();
+    state.app();
 }
