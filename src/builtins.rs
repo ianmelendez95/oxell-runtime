@@ -40,6 +40,15 @@ impl State {
         self.get_cur_stack_mut().pop().unwrap()
     }
 
+    pub fn stack_size(&self) -> usize {
+        self.get_cur_stack().len()
+    }
+
+    pub fn stack_peek(&self) -> &Node {
+        let stack = self.get_cur_stack();
+        stack.get(stack.len() - 1).unwrap()
+    }
+
     // pub fn stack_clone_top(&self) -> Node {
     //     self.get_cur_stack_mut()
     // }
@@ -58,7 +67,7 @@ impl State {
 #[derive(Clone, Copy)]
 pub struct FnDef {
     name: &'static str,
-    arity: u32,
+    arity: usize,
     fn_ref: StateFn
 }
 
@@ -165,12 +174,14 @@ impl fmt::Debug for Thunk {
 
 impl State {
     pub fn stack_dump(&self) {
-        for (stack_idx, stack) in self.stacks.iter().rev().enumerate() {
-            println!("--- Frame [{}] ---", stack_idx);
-            for (node_idx, node) in stack.iter().enumerate() {
+        println!("--- BEGIN DUMP ---");
+        for (stack_idx, stack) in self.stacks.iter().enumerate().rev() {
+            println!("\n--- Frame [{}] ---", stack_idx);
+            for (node_idx, node) in stack.iter().enumerate().rev() {
                 println!("[{}] {:?}", node_idx, node);
             }
         }
+        println!("\n--- END DUMP ---")
     }
 
     pub fn push_int(&mut self, int_val: i64) {
@@ -192,28 +203,43 @@ impl State {
     }
 
     pub fn eval(&mut self) {
-        let top = self.stack_pop();
-        self.stack_enter_new();
-        if let Node::App(nl, nr) = top {
-            self.eval_app(*nl, *nr);
-        } else {
-            self.stack_push(top);
+        // SPJ:321
+
+        if let Node::App(_, _) = self.stack_peek() {
+            let app_head = *self.stack_peek();  // copy the node
+            self.stack_enter_new();
+            self.stack_push(app_head);
+            self.unwind();
         }
-    }
-
-    fn eval_app(&mut self, nl: Node, nr: Node) {
-        self.stack_push(nr);
-        if let Node::FnDef(fn_def) = nl {
-            self.eval_fn(fn_def);
-        }
-    }
-
-    fn eval_fn(&mut self, fn_def: FnDef) {
-
     }
 
     pub fn unwind(&mut self) {
-        todo!()
+        // SPJ:322
+
+        while let Node::App(nl, _) = self.stack_peek() {
+            self.stack_push(**nl);
+        }
+
+        if let Node::FnDef(_) = self.stack_peek() {
+            if let Node::FnDef(fn_def) = self.stack_pop() {
+                let stack_size = self.stack_size();
+                if stack_size >= fn_def.arity {
+                    let new_size = stack_size - fn_def.arity;
+                    let args_spine = self.get_cur_stack_mut().split_off(new_size);
+                    for arg_app in args_spine {
+                        if let Node::App(_, nr) = arg_app {
+                            self.stack_push(*nr);
+                        } else {
+                            unreachable!("Should only be applications on spine");
+                        }
+                    }
+
+                    (fn_def.fn_ref)(self);
+                }
+            } else {
+                unreachable!()
+            }
+        }
     }
 }
 
@@ -223,26 +249,21 @@ pub static FN_ADD: FnDef = FnDef {
     fn_ref: eval_add
 };
 
-pub fn eval_add(state: &mut State) {
-
-}
-
-pub fn int(int_val: i64) -> Node {
-    Node::Int(int_val)
-}
-
 // pub fn thunk(boxed_t: Box<dyn ThunkEval>) -> Node {
 //     Node::ThunkRef(Rc::new(RefCell::new(Thunk::UThunk(boxed_t))))
 // }
 
 macro_rules! bin_arith {
-    ($nl:ident, $nr:ident, $op:tt) => {
-        let vl: Node = $nl.eval();
-        let vr: Node = $nr.eval();
+    ($state:ident, $op:tt) => {
+        $state.eval(); 
+        let vl = $state.stack_pop();
+
+        $state.eval();
+        let vr = $state.stack_pop();
 
         if let Node::Int(vl) = vl {
             if let Node::Int(vr) = vr {
-                return Node::Int(vl $op vr);
+                $state.stack_push(Node::Int(vl $op vr));
             } else {
                 panic!("Expecting integer for right operand: {:?}", vr)
             }
@@ -250,6 +271,11 @@ macro_rules! bin_arith {
             panic!("Expecting integer for left operand: {:?}", vl)
         }
     };
+}
+
+pub fn eval_add(state: &mut State) {
+    println!("EVAL ADD");
+    bin_arith!(state, +);
 }
 
 pub struct TracedThunk {

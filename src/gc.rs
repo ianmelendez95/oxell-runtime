@@ -4,8 +4,6 @@ use std::fmt::Formatter;
 use std::fmt::Debug;
 use std::ops::Deref;
 
-pub type Stack = Vec<Node>;
-
 pub struct GcAlloc {
     nodes: Vec<*mut Node>
 }
@@ -54,10 +52,8 @@ impl GcAlloc {
     }
 
     pub fn new_node(&mut self, item: Node) -> Gc<Node> {
-        unsafe {
-            let node_ref = Box::into_raw(Box::new(item));
-            self.nodes.push(node_ref);
-            Gc { ptr: node_ref }
-        }
+        let node_ref = Box::into_raw(Box::new(item));
+        self.nodes.push(node_ref);
+        Gc { ptr: node_ref }
     }
 }
