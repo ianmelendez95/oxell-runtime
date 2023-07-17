@@ -24,6 +24,10 @@ impl State {
         state
     }
 
+    pub fn alloc_node(&mut self, node: Node) -> Gc<Node> {
+        self.alloc.new_node(node)
+    }
+
     pub fn stack_enter_new(&mut self) {
         self.stacks.push(Vec::new());
     }
@@ -34,6 +38,15 @@ impl State {
 
     pub fn stack_pop(&mut self) -> Node {
         self.get_cur_stack_mut().pop().unwrap()
+    }
+
+    // pub fn stack_clone_top(&self) -> Node {
+    //     self.get_cur_stack_mut()
+    // }
+
+    fn get_cur_stack(&self) -> &Stack {
+        let len = self.stacks.len();
+        &self.stacks.get(len - 1).unwrap()
     }
 
     fn get_cur_stack_mut(&mut self) -> &mut Stack {
@@ -49,50 +62,51 @@ pub struct FnDef {
     fn_ref: StateFn
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum Node {
     Int(i64),
     FnDef(FnDef),
-    App(Box<Node>, Box<Node>),
-    ThunkRef(Rc<RefCell<Thunk>>)
+    App(Gc<Node>, Gc<Node>),
+    ThunkRef(Gc<Thunk>)
 }
 
-impl Node {
-    pub fn eval(self) -> Node {
-        self.reduce();
+// impl Node {
+//     pub fn eval(self) -> Node {
+//         self.reduce();
 
-        match self {
-            Node::Int(_) => self,
-            Node::ThunkRef(t_ref) => {
-                match &*t_ref.borrow() {
-                    Thunk::UThunk(_) => panic!(),
-                    Thunk::EThunk(value) => {
-                        value.clone()
-                    }
-                }
-            }
-            Node::App(_, _) => todo!(),
-            Node::FnDef(_) => todo!(),
-        }
-    }
+//         match self {
+//             Node::Int(_) => self,
+//             Node::ThunkRef(t_ref) => {
+//                 match t_ref.as_ref() {
+//                     Thunk::UThunk(_) => panic!(),
+//                     Thunk::EThunk(value) => {
+//                         value.clone()
+//                     }
+//                 }
+//             }
+//             Node::App(_, _) => todo!(),
+//             Node::FnDef(_) => todo!(),
+//         }
+//     }
 
-    fn reduce(&self) {
-        if let Node::ThunkRef(t_ref) = self {
-            RefMut::map(t_ref.as_ref().borrow_mut(), |t_mut| {
-                if let Thunk::UThunk(thunk) = t_mut {
-                    *t_mut = Thunk::EThunk(thunk.eval_thunk().eval());
-                    t_mut
-                } else {
-                    t_mut  // noop
-                }
-            });
+//     fn reduce(&self) {
+//         if let Node::ThunkRef(t_ref) = self {
+//             *t_ref = 
+//             RefMut::map(t_ref.as_ref().borrow_mut(), |t_mut| {
+//                 if let Thunk::UThunk(thunk) = t_mut {
+//                     *t_mut = Thunk::EThunk(thunk.eval_thunk().eval());
+//                     t_mut
+//                 } else {
+//                     t_mut  // noop
+//                 }
+//             });
 
-            if let Thunk::UThunk(_) = &*t_ref.borrow() {
-                self.reduce();
-            }
-        }
-    }
-}
+//             if let Thunk::UThunk(_) = &*t_ref.borrow() {
+//                 self.reduce();
+//             }
+//         }
+//     }
+// }
 
 pub enum Thunk {
     UThunk(Box<dyn ThunkEval>),
@@ -110,7 +124,7 @@ impl fmt::Display for Node {
                 write!(f, "{}", i)
             }
             Node::ThunkRef(t) => {
-                unreachable!("Asked to display thunk: {:?}", (*t).borrow());
+                unreachable!("Asked to display thunk: {:?}", *t);
             },
             Node::App(_, _) => {
                 unreachable!("Asked to display application: {:?}", self);
@@ -126,7 +140,7 @@ impl fmt::Debug for Node {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Node::Int(i) => write!(f, "Int({})", i), 
-            Node::ThunkRef(t) => write!(f, "{:?}", (*t).borrow()),
+            Node::ThunkRef(t) => write!(f, "{:?}", t.as_ref()),
             Node::App(el, er) => write!(f, "@({:?}, {:?})", el, er),
             Node::FnDef(def) => write!(f, "fn<{}:{}>", def.name, def.arity),
         }
@@ -160,11 +174,15 @@ impl State {
         let nl = self.stack_pop();
         let nr = self.stack_pop();
 
-        self.stack_push(Node::App(Box::new(nl), Box::new(nr)));
+        let boxed_nl = self.alloc_node(nl);
+        let boxed_nr = self.alloc_node(nr);
+
+        self.stack_push(Node::App(boxed_nl, boxed_nr));
     }
 
     pub fn eval(&mut self) {
         let top = self.stack_pop();
+        self.stack_enter_new();
         if let Node::App(nl, nr) = top {
             self.eval_app(*nl, *nr);
         } else {
@@ -202,9 +220,9 @@ pub fn int(int_val: i64) -> Node {
     Node::Int(int_val)
 }
 
-pub fn thunk(boxed_t: Box<dyn ThunkEval>) -> Node {
-    Node::ThunkRef(Rc::new(RefCell::new(Thunk::UThunk(boxed_t))))
-}
+// pub fn thunk(boxed_t: Box<dyn ThunkEval>) -> Node {
+//     Node::ThunkRef(Rc::new(RefCell::new(Thunk::UThunk(boxed_t))))
+// }
 
 macro_rules! bin_arith {
     ($nl:ident, $nr:ident, $op:tt) => {
@@ -235,11 +253,11 @@ impl ThunkEval for TracedThunk {
     }
 }
 
-impl TracedThunk {
-    pub fn new(name: String, value: Node) -> Node {
-        thunk(Box::new(TracedThunk { name, value }))
-    }
-}
+// impl TracedThunk {
+//     pub fn new(name: String, value: Node) -> Node {
+//         thunk(Box::new(TracedThunk { name, value }))
+//     }
+// }
 
 // macro_rules! bin_thunk {
 //     ($thunk_name:ident, $eval_fn:ident, $fn_name:ident) => {
