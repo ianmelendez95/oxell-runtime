@@ -14,7 +14,8 @@ struct CantCopy { x: u32 }
 fn main() {
     let mut state = State::new();
     prog(&mut state);
-    state.eval();
+    state.stack_dump();
+    // state.eval();
     // state.unwind();
     println!("{:?}", state.stack_pop());
 }

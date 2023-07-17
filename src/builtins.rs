@@ -141,7 +141,9 @@ impl fmt::Debug for Node {
         match self {
             Node::Int(i) => write!(f, "Int({})", i), 
             Node::ThunkRef(t) => write!(f, "{:?}", t.as_ref()),
-            Node::App(el, er) => write!(f, "@({:?}, {:?})", el, er),
+            Node::App(el, er) => {
+                write!(f, "@({:?}, {:?})", el, er)
+            },
             Node::FnDef(def) => write!(f, "fn<{}:{}>", def.name, def.arity),
         }
     }
@@ -162,6 +164,15 @@ impl fmt::Debug for Thunk {
  * ***************** */
 
 impl State {
+    pub fn stack_dump(&self) {
+        for (stack_idx, stack) in self.stacks.iter().rev().enumerate() {
+            println!("--- Frame [{}] ---", stack_idx);
+            for (node_idx, node) in stack.iter().enumerate() {
+                println!("[{}] {:?}", node_idx, node);
+            }
+        }
+    }
+
     pub fn push_int(&mut self, int_val: i64) {
         self.stack_push(Node::Int(int_val));
     }

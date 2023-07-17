@@ -16,7 +16,7 @@ pub struct Gc<T> {
 
 impl<T: Debug> fmt::Debug for Gc<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{:?}", self.as_ref())
     }
 }
 
