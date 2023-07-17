@@ -8,6 +8,7 @@ use builtins::State;
 fn main() {
     let mut state = State::new();
     prog(&mut state);
+    state.eval();
     // state.unwind();
-    println!("{:?}", state.stack.get(state.stack.len() - 1));
+    println!("{:?}", state.stack_pop());
 }

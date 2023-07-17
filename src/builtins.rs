@@ -7,17 +7,38 @@ use crate::gc::*;
 
 pub struct State {
     alloc: GcAlloc,
-    pub stack: Stack
+    stacks: Vec<Stack>
 }
+
+type Stack = Vec<Node>;
 
 pub type StateFn = fn(state: &mut State);
 
 impl State {
     pub fn new() -> Self {
-        State {
+        let mut state = State {
             alloc: GcAlloc::new(),
-            stack: Vec::new()
-        }
+            stacks: Vec::new()
+        };
+        state.stack_enter_new();
+        state
+    }
+
+    pub fn stack_enter_new(&mut self) {
+        self.stacks.push(Vec::new());
+    }
+
+    pub fn stack_push(&mut self, node: Node) {
+        self.get_cur_stack_mut().push(node);
+    }
+
+    pub fn stack_pop(&mut self) -> Node {
+        self.get_cur_stack_mut().pop().unwrap()
+    }
+
+    fn get_cur_stack_mut(&mut self) -> &mut Stack {
+        let len = self.stacks.len();
+        self.stacks.get_mut(len - 1).unwrap()
     }
 }
 
@@ -32,7 +53,7 @@ pub struct FnDef {
 pub enum Node {
     Int(i64),
     FnDef(FnDef),
-    App(Gc<Node>, Gc<Node>),
+    App(Box<Node>, Box<Node>),
     ThunkRef(Rc<RefCell<Thunk>>)
 }
 
@@ -128,35 +149,38 @@ impl fmt::Debug for Thunk {
 
 impl State {
     pub fn push_int(&mut self, int_val: i64) {
-        self.stack.push(Node::Int(int_val));
+        self.stack_push(Node::Int(int_val));
     }
 
     pub fn push_fn(&mut self, fn_def: FnDef) {
-        self.stack.push(Node::FnDef(fn_def));
+        self.stack_push(Node::FnDef(fn_def));
     }
 
     pub fn app(&mut self) {
-        let nl = self.stack.pop().unwrap();
-        let nr = self.stack.pop().unwrap();
+        let nl = self.stack_pop();
+        let nr = self.stack_pop();
 
-        self.stack.push(Node::App(
-            self.alloc.new_node(nl),
-            self.alloc.new_node(nr)
-        ));
+        self.stack_push(Node::App(Box::new(nl), Box::new(nr)));
     }
 
     pub fn eval(&mut self) {
-        let top = self.stack.pop().unwrap();
+        let top = self.stack_pop();
         if let Node::App(nl, nr) = top {
-            match nl.as_ref() {
-                Node::Int(_) => todo!(),
-                Node::FnDef(_) => todo!(),
-                Node::App(_, _) => todo!(),
-                Node::ThunkRef(_) => todo!(),
-            }
+            self.eval_app(*nl, *nr);
         } else {
-            self.stack.push(top);
+            self.stack_push(top);
         }
+    }
+
+    fn eval_app(&mut self, nl: Node, nr: Node) {
+        self.stack_push(nr);
+        if let Node::FnDef(fn_def) = nl {
+            self.eval_fn(fn_def);
+        }
+    }
+
+    fn eval_fn(&mut self, fn_def: FnDef) {
+
     }
 
     pub fn unwind(&mut self) {
