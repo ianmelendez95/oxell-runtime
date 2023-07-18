@@ -154,44 +154,6 @@ pub enum Node {
     ThunkRef(Gc<Thunk>)
 }
 
-// impl Node {
-//     pub fn eval(self) -> Node {
-//         self.reduce();
-
-//         match self {
-//             Node::Int(_) => self,
-//             Node::ThunkRef(t_ref) => {
-//                 match t_ref.as_ref() {
-//                     Thunk::UThunk(_) => panic!(),
-//                     Thunk::EThunk(value) => {
-//                         value.clone()
-//                     }
-//                 }
-//             }
-//             Node::App(_, _) => todo!(),
-//             Node::FnDef(_) => todo!(),
-//         }
-//     }
-
-//     fn reduce(&self) {
-//         if let Node::ThunkRef(t_ref) = self {
-//             *t_ref = 
-//             RefMut::map(t_ref.as_ref().borrow_mut(), |t_mut| {
-//                 if let Thunk::UThunk(thunk) = t_mut {
-//                     *t_mut = Thunk::EThunk(thunk.eval_thunk().eval());
-//                     t_mut
-//                 } else {
-//                     t_mut  // noop
-//                 }
-//             });
-
-//             if let Thunk::UThunk(_) = &*t_ref.borrow() {
-//                 self.reduce();
-//             }
-//         }
-//     }
-// }
-
 pub enum Thunk {
     UThunk(Box<dyn ThunkEval>),
     EThunk(Node)
@@ -328,10 +290,6 @@ pub static FN_ADD: FnDef = FnDef {
     fn_ref: eval_add
 };
 
-// pub fn thunk(boxed_t: Box<dyn ThunkEval>) -> Node {
-//     Node::ThunkRef(Rc::new(RefCell::new(Thunk::UThunk(boxed_t))))
-// }
-
 macro_rules! bin_arith {
     ($state:ident, $op:tt) => {
         $state.eval(); 
@@ -398,20 +356,3 @@ impl ThunkEval for TracedThunk {
 // bin_thunk!(SubThunk, eval_sub, sub);
 // bin_thunk!(DivThunk, eval_div, div);
 // bin_thunk!(MulThunk, eval_mul, mul);
-
-
-// fn eval_add(nl: Node, nr: Node) -> Node {
-//     bin_arith!(nl, nr, +);
-// }
-
-// fn eval_sub(nl: Node, nr: Node) -> Node {
-//     bin_arith!(nl, nr, -);
-// }
-
-// fn eval_div(nl: Node, nr: Node) -> Node {
-//     bin_arith!(nl, nr, /);
-// }
-
-// fn eval_mul(nl: Node, nr: Node) -> Node {
-//     bin_arith!(nl, nr, *);
-// }
