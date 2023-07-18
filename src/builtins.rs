@@ -7,7 +7,7 @@ use crate::gc::*;
 
 pub struct State {
     alloc: GcAlloc,
-    stacks: Vec<Stack>
+    pub stacks: Vec<Stack>
 }
 
 type Stack = Vec<Node>;
@@ -25,7 +25,82 @@ impl State {
     }
 
     pub fn alloc_node(&mut self, node: Node) -> Gc<Node> {
-        self.alloc.new_node(node)
+        self.collect();
+        self.alloc.alloc_node(node)
+    }
+
+    fn collect(&mut self) {
+        self.mark_from_roots();
+        self.alloc.sweep();
+    }
+    
+    fn mark_from_roots(&mut self) {
+        let mut worklist: Vec<Gc<Node>> = Vec::new();
+
+        for stack in self.stacks.iter_mut() {
+            for node in stack.iter_mut() {
+                match *node {
+                    Node::Int(_) => {},
+                    Node::FnDef(_) => {},
+                    Node::App(mut nl, mut nr) => {
+                        if !nl.is_marked() {
+                            nl.mark();
+                            worklist.push(nl);
+                            State::mark(&mut worklist);
+                        }
+
+                        if !nr.is_marked() {
+                            nr.mark();
+                            worklist.push(nr);
+                            State::mark(&mut worklist);
+                        }
+                    },
+                    Node::ThunkRef(_) => todo!(),
+                }
+            }
+        }
+    }
+
+    fn mark(worklist: &mut Vec<Gc<Node>>) {
+        while let Some(node) = worklist.pop() {
+            match *node {
+                Node::Int(_) => {},
+                Node::FnDef(_) => {},
+                Node::App(mut nl, mut nr) => {
+                    if !nl.is_marked() {
+                        nl.mark();
+                        worklist.push(nl);
+                    }
+
+                    if !nr.is_marked() {
+                        nr.mark();
+                        worklist.push(nr);
+                    }
+                },
+                Node::ThunkRef(_) => todo!(),
+            }
+        }
+    }
+
+    fn mark_node(worklist: &mut Vec<Gc<Node>>, node: Node) {
+        match node {
+            Node::Int(_) => {},
+            Node::FnDef(_) => {},
+            Node::App(mut nl, mut nr) => {
+                if !nl.is_marked() {
+                    nl.mark();
+                    worklist.push(nl);
+                    State::mark(worklist);
+                }
+
+                if !nr.is_marked() {
+                    nr.mark();
+                    worklist.push(nr);
+                    State::mark(worklist);
+                }
+            },
+            Node::ThunkRef(_) => todo!(),
+        }
     }
 
     pub fn stack_enter_new(&mut self) {
@@ -173,6 +248,10 @@ impl fmt::Debug for Thunk {
  * ***************** */
 
 impl State {
+    pub fn gc_dump(&self) {
+        self.alloc.dump();
+    }
+
     pub fn stack_dump(&self) {
         println!("--- BEGIN DUMP ---");
         for (stack_idx, stack) in self.stacks.iter().enumerate().rev() {

@@ -3,13 +3,33 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::fmt::Debug;
 use std::ops::Deref;
+use std::mem;
 
 pub struct GcAlloc {
-    nodes: Vec<*mut Node>
+    nodes: Vec<*mut GcObj<Node>>
 }
 
 pub struct Gc<T> {
-    ptr: *mut T
+    ptr: *mut GcObj<T>
+}
+
+impl<T> Gc<T> {
+    pub fn is_marked(&self) -> bool {
+        unsafe { 
+            (*self.ptr).marked
+        }
+    }
+
+    pub fn mark(&mut self) {
+        unsafe {
+            (*self.ptr).marked = true;
+        }
+    }
+}
+
+pub struct GcObj<T> {
+    marked: bool,
+    value: T
 }
 
 impl<T: Debug> fmt::Debug for Gc<T> {
@@ -30,7 +50,7 @@ impl<T> Deref for Gc<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.ptr }
+        unsafe { &(*self.ptr).value }
     }
 }
 
@@ -42,7 +62,13 @@ impl fmt::Display for Gc<Node> {
 
 impl<T> AsRef<T> for Gc<T> {
     fn as_ref(&self) -> &T {
-        unsafe { &*self.ptr }
+        unsafe { &(*self.ptr).value }
+    }
+}
+
+impl<T> AsMut<T> for Gc<T> {
+    fn as_mut(&mut self) -> &mut T {
+        unsafe { &mut (*self.ptr).value }
     }
 }
 
@@ -51,9 +77,30 @@ impl GcAlloc {
         GcAlloc { nodes: Vec::new() }
     }
 
-    pub fn new_node(&mut self, item: Node) -> Gc<Node> {
-        let node_ref = Box::into_raw(Box::new(item));
+    pub fn alloc_node(&mut self, item: Node) -> Gc<Node> {
+        let node_ref = Box::into_raw(Box::new(GcObj { marked: false, value: item }));
         self.nodes.push(node_ref);
         Gc { ptr: node_ref }
+    }
+
+    pub fn sweep(&mut self) {
+        unsafe {
+            let mut new_nodes: Vec<*mut GcObj<Node>> = Vec::new();
+            while let Some(gc_ref) = self.nodes.pop() {
+                if (&*gc_ref).marked {
+                    (&mut *gc_ref).marked = false;
+                    new_nodes.push(gc_ref);
+                } else {
+                    let _ = Box::from_raw(gc_ref); // let it get collected when exiting scope
+                }
+            }
+            self.nodes = new_nodes;
+        }
+    }
+
+    pub fn dump(&self) {
+        println!("\n--- Begin GC Stats ---\n");
+        println!("Objects: {} ({} bytes)", self.nodes.len(), self.nodes.len() * mem::size_of::<Node>());
+        println!("\n--- End GC Stats ---\n");
     }
 }
