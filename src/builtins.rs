@@ -24,87 +24,34 @@ impl State {
         state
     }
 
-    pub fn alloc_node(&mut self, node: Node) -> Gc<Node> {
-        self.collect();
+    // pub fn mk_app(&mut self, nl: Node, nr: Node) -> Node {
+    //     let boxed_nl = self.alloc_node(nl);
+    //     let boxed_nr = self.alloc_node(nr);
+    //     Node::App(boxed_nl, boxed_nr)
+    // }
+
+    fn alloc_node(&mut self, node: Node) -> Gc<Node> {
+        let mut worklist = Vec::new();
+        node.mark_refs(&mut worklist);
+        self.collect(worklist);
+
         self.alloc.alloc_node(node)
     }
 
-    fn collect(&mut self) {
-        self.mark_from_roots();
-        self.alloc.sweep();
-    }
-    
-    fn mark_from_roots(&mut self) {
-        let mut worklist: Vec<Gc<Node>> = Vec::new();
-
+    fn mark_stack_roots(&mut self, worklist: &mut Vec<Gc<Node>>) {
         for stack in self.stacks.iter_mut() {
             for node in stack.iter_mut() {
-                match *node {
-                    Node::Int(_) => {},
-                    Node::FnDef(_) => {},
-                    Node::App(mut nl, mut nr) => {
-                        if !nl.is_marked() {
-                            nl.mark();
-                            worklist.push(nl);
-                            State::mark(&mut worklist);
-                        }
-
-                        if !nr.is_marked() {
-                            nr.mark();
-                            worklist.push(nr);
-                            State::mark(&mut worklist);
-                        }
-                    },
-                    Node::ThunkRef(_) => todo!(),
-                }
+                node.mark_refs(worklist);
             }
-        }
-    }
-
-    fn mark(worklist: &mut Vec<Gc<Node>>) {
-        while let Some(node) = worklist.pop() {
-            match *node {
-                Node::Int(_) => {},
-                Node::FnDef(_) => {},
-                Node::App(mut nl, mut nr) => {
-                    if !nl.is_marked() {
-                        nl.mark();
-                        worklist.push(nl);
-                    }
-
-                    if !nr.is_marked() {
-                        nr.mark();
-                        worklist.push(nr);
-                    }
-                },
-                Node::ThunkRef(_) => todo!(),
-            }
-        }
-    }
-
-    fn mark_node(worklist: &mut Vec<Gc<Node>>, node: Node) {
-        match node {
-            Node::Int(_) => {},
-            Node::FnDef(_) => {},
-            Node::App(mut nl, mut nr) => {
-                if !nl.is_marked() {
-                    nl.mark();
-                    worklist.push(nl);
-                    State::mark(worklist);
-                }
-
-                if !nr.is_marked() {
-                    nr.mark();
-                    worklist.push(nr);
-                    State::mark(worklist);
-                }
-            },
-            Node::ThunkRef(_) => todo!(),
         }
     }
 
     pub fn stack_enter_new(&mut self) {
         self.stacks.push(Vec::new());
+    }
+
+    pub fn stack_exit(&mut self) {
+        self.stacks.pop();
     }
 
     pub fn stack_push(&mut self, node: Node) {
@@ -151,7 +98,8 @@ pub enum Node {
     Int(i64),
     FnDef(FnDef),
     App(Gc<Node>, Gc<Node>),
-    ThunkRef(Gc<Thunk>)
+    ThunkRef(Gc<Thunk>),
+    NodeRef(Gc<Node>)
 }
 
 pub enum Thunk {
@@ -161,6 +109,36 @@ pub enum Thunk {
 
 pub trait ThunkEval {
     fn eval_thunk(&self) -> Node;
+}
+
+impl Node {
+    /// The function to 'mark' any contained GC references.
+    /// Sets the `marked` bit on the GC references,
+    /// as well as add them to the `worklist`.
+    pub fn mark_refs(&self, worklist: &mut Worklist) {
+        match self {
+            Node::Int(_) => {},
+            Node::FnDef(_) => {},
+            Node::App(mut nl, mut nr) => {
+                if !nl.is_marked() {
+                    nl.mark();
+                    worklist.push(nl);
+                }
+
+                if !nr.is_marked() {
+                    nr.mark();
+                    worklist.push(nr);
+                }
+            },
+            Node::ThunkRef(_) => todo!(),
+            Node::NodeRef(mut node_ref) => {
+                if !node_ref.is_marked() {
+                    node_ref.mark();
+                    worklist.push(node_ref);
+                }
+            },
+        }
+    }
 }
 
 impl fmt::Display for Node {
@@ -178,6 +156,7 @@ impl fmt::Display for Node {
             Node::FnDef(_) => {
                 unreachable!("Asked to display function: {:?}", self);
             }
+            Node::NodeRef(nref) => write!(f, "{}", nref.as_ref()),
         }
     }
 }
@@ -191,6 +170,7 @@ impl fmt::Debug for Node {
                 write!(f, "@({:?}, {:?})", el, er)
             },
             Node::FnDef(def) => write!(f, "fn<{}:{}>", def.name, def.arity),
+            Node::NodeRef(nref) => write!(f, "{}", nref.as_ref()),
         }
     }
 }
@@ -225,6 +205,11 @@ impl State {
         println!("\n--- END DUMP ---")
     }
 
+    pub fn collect(&mut self, mut worklist: Worklist) {
+        self.mark_stack_roots(&mut worklist);
+        self.alloc.collect(worklist);
+    }
+
     pub fn push_int(&mut self, int_val: i64) {
         self.stack_push(Node::Int(int_val));
     }
@@ -233,14 +218,14 @@ impl State {
         self.stack_push(Node::FnDef(fn_def));
     }
 
-    pub fn app(&mut self) {
-        let nl = self.stack_pop();
-        let nr = self.stack_pop();
+    pub fn mk_app(&mut self) {
+        let raw_nl = self.stack_pop();
+        let raw_nr = self.stack_pop();
 
-        let boxed_nl = self.alloc_node(nl);
-        let boxed_nr = self.alloc_node(nr);
+        let nl = self.alloc_node(raw_nl);
+        let nr = self.alloc_node(raw_nr);
 
-        self.stack_push(Node::App(boxed_nl, boxed_nr));
+        self.stack_push(Node::App(nl, nr));
     }
 
     pub fn eval(&mut self) {
@@ -251,6 +236,7 @@ impl State {
             self.stack_enter_new();
             self.stack_push(app_head);
             self.unwind();
+            self.stack_exit();
         }
     }
 

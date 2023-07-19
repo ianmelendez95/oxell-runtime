@@ -22,6 +22,6 @@ pub fn prog(state: &mut State) {
     state.push_int(13);
     state.push_int(42);
     state.push_fn(FN_ADD);
-    state.app();
-    state.app();
+    state.mk_app();
+    state.mk_app();
 }

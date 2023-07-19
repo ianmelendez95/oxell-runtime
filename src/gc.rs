@@ -72,15 +72,29 @@ impl<T> AsMut<T> for Gc<T> {
     }
 }
 
+pub type Worklist = Vec<Gc<Node>>;
+
 impl GcAlloc {
     pub fn new() -> Self {
         GcAlloc { nodes: Vec::new() }
     }
 
     pub fn alloc_node(&mut self, item: Node) -> Gc<Node> {
+        println!("Allocating: {:?}", &item);
         let node_ref = Box::into_raw(Box::new(GcObj { marked: false, value: item }));
         self.nodes.push(node_ref);
         Gc { ptr: node_ref }
+    }
+
+    pub fn collect(&mut self, mut worklist: Worklist) {
+        Self::mark(&mut worklist);
+        self.sweep();
+    }
+
+    fn mark(worklist: &mut Worklist) {
+        while let Some(node) = worklist.pop() {
+            node.mark_refs(worklist);
+        }
     }
 
     pub fn sweep(&mut self) {
@@ -91,6 +105,7 @@ impl GcAlloc {
                     (&mut *gc_ref).marked = false;
                     new_nodes.push(gc_ref);
                 } else {
+                    println!("Sweeping");
                     let _ = Box::from_raw(gc_ref); // let it get collected when exiting scope
                 }
             }
