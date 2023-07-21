@@ -38,6 +38,18 @@ impl State {
         self.alloc.alloc_node(node)
     }
 
+    fn alloc_nodes(&mut self, node1: Node, node2: Node) -> (Gc<Node>, Gc<Node>) {
+        let mut worklist = Vec::new();
+        node1.mark_refs(&mut worklist);
+        node2.mark_refs(&mut worklist);
+        self.collect(worklist);
+
+        let alloc1 = self.alloc.alloc_node(node1);
+        let alloc2 = self.alloc.alloc_node(node2);
+
+        (alloc1, alloc2)
+    }
+
     fn mark_stack_roots(&mut self, worklist: &mut Vec<Gc<Node>>) {
         for stack in self.stacks.iter_mut() {
             for node in stack.iter_mut() {
@@ -222,8 +234,7 @@ impl State {
         let raw_nl = self.stack_pop();
         let raw_nr = self.stack_pop();
 
-        let nl = self.alloc_node(raw_nl);
-        let nr = self.alloc_node(raw_nr);
+        let (nl, nr) = self.alloc_nodes(raw_nl, raw_nr);
 
         self.stack_push(Node::App(nl, nr));
     }
@@ -232,11 +243,13 @@ impl State {
         // SPJ:321
 
         if let Node::App(_, _) = self.stack_peek() {
-            let app_head = *self.stack_peek();  // copy the node
+            let app_head = self.stack_pop();  // copy the node
             self.stack_enter_new();
             self.stack_push(app_head);
             self.unwind();
+            let unwind_result = self.stack_pop();
             self.stack_exit();
+            self.stack_push(unwind_result);
         }
     }
 
@@ -276,6 +289,24 @@ pub static FN_ADD: FnDef = FnDef {
     fn_ref: eval_add
 };
 
+pub static FN_SUB: FnDef = FnDef {
+    name: "sub",
+    arity: 2,
+    fn_ref: eval_sub
+};
+
+pub static FN_MUL: FnDef = FnDef {
+    name: "mul",
+    arity: 2,
+    fn_ref: eval_mul
+};
+
+pub static FN_DIV: FnDef = FnDef {
+    name: "div",
+    arity: 2,
+    fn_ref: eval_div
+};
+
 macro_rules! bin_arith {
     ($state:ident, $op:tt) => {
         $state.eval(); 
@@ -297,8 +328,19 @@ macro_rules! bin_arith {
 }
 
 pub fn eval_add(state: &mut State) {
-    println!("EVAL ADD");
     bin_arith!(state, +);
+}
+
+pub fn eval_sub(state: &mut State) {
+    bin_arith!(state, -);
+}
+
+pub fn eval_mul(state: &mut State) {
+    bin_arith!(state, *);
+}
+
+pub fn eval_div(state: &mut State) {
+    bin_arith!(state, /);
 }
 
 pub struct TracedThunk {

@@ -13,16 +13,10 @@ struct CantCopy { x: u32 }
 
 fn main() {
     let mut state = State::new();
-    state.gc_dump();
     prog(&mut state);
-    state.gc_dump();
-    state.stack_dump();
     state.eval();
-    state.gc_dump();
-    // state.stack_dump();
-    state.stack_dump();
     println!("{:?}", state.stack_pop());
-    state.collect(Vec::new());
-    state.stack_dump();
-    state.gc_dump();
+    // state.collect(Vec::new());
+    // state.gc_dump();
+    // state.gc_dump();
 }

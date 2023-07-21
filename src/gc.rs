@@ -80,7 +80,7 @@ impl GcAlloc {
     }
 
     pub fn alloc_node(&mut self, item: Node) -> Gc<Node> {
-        println!("Allocating: {:?}", &item);
+        // println!("Allocating: {:?}", &item);
         let node_ref = Box::into_raw(Box::new(GcObj { marked: false, value: item }));
         self.nodes.push(node_ref);
         Gc { ptr: node_ref }

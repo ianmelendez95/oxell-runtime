@@ -19,9 +19,33 @@
 use crate::builtins::*;
 
 pub fn prog(state: &mut State) {
-    state.push_int(13);
+    // state.push_int(13);
+
+    // state.push_int(2);
+    
     state.push_int(42);
+    state.push_int(9);
     state.push_fn(FN_ADD);
     state.mk_app();
     state.mk_app();
+
+
+    // state.mk_app();
+    // state.stack_dump();
+    // state.mk_app();
+
+
+    // state.push_fn(FN_DIV);
+    // state.mk_app();
+    // state.mk_app();
+
+    // state.push_int(23);
+    // state.push_fn(FN_ADD);
+    // state.mk_app();
+    // state.mk_app();
+
+
+    // state.push_fn(FN_SUB);
+    // state.mk_app();
+    // state.mk_app();
 }
