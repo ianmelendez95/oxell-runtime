@@ -15,7 +15,7 @@ fn main() {
     let mut state = State::new();
     prog(&mut state);
     state.eval();
-    println!("{:?}", state.stack_pop());
+    println!("{}", state.stack_pop());
     // state.collect(Vec::new());
     // state.gc_dump();
     // state.gc_dump();
