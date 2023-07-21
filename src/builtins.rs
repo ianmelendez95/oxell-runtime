@@ -7,6 +7,31 @@ pub struct State {
     pub stacks: Vec<Stack>
 }
 
+#[derive(Clone, Copy)]
+pub struct FnDef {
+    name: &'static str,
+    arity: usize,
+    fn_ref: StateFn
+}
+
+#[derive(Clone, Copy)]
+pub enum Node {
+    Int(i64),
+    FnDef(FnDef),
+    App(Gc<Node>, Gc<Node>),
+    ThunkRef(Gc<Thunk>),
+    NodeRef(Gc<Node>)
+}
+
+pub enum Thunk {
+    UThunk(Box<dyn ThunkEval>),
+    EThunk(Node)
+}
+
+pub trait ThunkEval {
+    fn eval_thunk(&self) -> Node;
+}
+
 type Stack = Vec<Node>;
 
 pub type StateFn = fn(state: &mut State);
@@ -179,31 +204,6 @@ impl State {
             }
         }
     }
-}
-
-#[derive(Clone, Copy)]
-pub struct FnDef {
-    name: &'static str,
-    arity: usize,
-    fn_ref: StateFn
-}
-
-#[derive(Clone, Copy)]
-pub enum Node {
-    Int(i64),
-    FnDef(FnDef),
-    App(Gc<Node>, Gc<Node>),
-    ThunkRef(Gc<Thunk>),
-    NodeRef(Gc<Node>)
-}
-
-pub enum Thunk {
-    UThunk(Box<dyn ThunkEval>),
-    EThunk(Node)
-}
-
-pub trait ThunkEval {
-    fn eval_thunk(&self) -> Node;
 }
 
 impl Node {
