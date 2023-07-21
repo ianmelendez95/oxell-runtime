@@ -24,11 +24,28 @@ impl State {
         state
     }
 
-    // pub fn mk_app(&mut self, nl: Node, nr: Node) -> Node {
-    //     let boxed_nl = self.alloc_node(nl);
-    //     let boxed_nr = self.alloc_node(nr);
-    //     Node::App(boxed_nl, boxed_nr)
-    // }
+    /* ***** *
+     * Debug *
+     * ***** */
+
+    pub fn gc_dump(&self) {
+        self.alloc.dump();
+    }
+
+    pub fn stack_dump(&self) {
+        println!("--- BEGIN DUMP ---");
+        for (stack_idx, stack) in self.stacks.iter().enumerate().rev() {
+            println!("\n--- Frame [{}] ---", stack_idx);
+            for (node_idx, node) in stack.iter().enumerate().rev() {
+                println!("[{}] {:?}", node_idx, node);
+            }
+        }
+        println!("\n--- END DUMP ---")
+    }
+
+    /* ***** *
+     * GC    *
+     * ***** */
 
     fn alloc_node(&mut self, node: Node) -> Gc<Node> {
         let mut worklist = Vec::new();
@@ -50,6 +67,11 @@ impl State {
         (alloc1, alloc2)
     }
 
+    pub fn collect(&mut self, mut worklist: Worklist) {
+        self.mark_stack_roots(&mut worklist);
+        self.alloc.collect(worklist);
+    }
+
     fn mark_stack_roots(&mut self, worklist: &mut Vec<Gc<Node>>) {
         for stack in self.stacks.iter_mut() {
             for node in stack.iter_mut() {
@@ -57,6 +79,10 @@ impl State {
             }
         }
     }
+
+    /* ***** *
+     * Stack *
+     * ***** */
 
     pub fn stack_enter_new(&mut self) {
         self.stacks.push(Vec::new());
@@ -83,10 +109,6 @@ impl State {
         stack.get(stack.len() - 1).unwrap()
     }
 
-    // pub fn stack_clone_top(&self) -> Node {
-    //     self.get_cur_stack_mut()
-    // }
-
     fn get_cur_stack(&self) -> &Stack {
         let len = self.stacks.len();
         &self.stacks.get(len - 1).unwrap()
@@ -95,6 +117,70 @@ impl State {
     fn get_cur_stack_mut(&mut self) -> &mut Stack {
         let len = self.stacks.len();
         self.stacks.get_mut(len - 1).unwrap()
+    }
+
+    pub fn push_int(&mut self, int_val: i64) {
+        self.stack_push(Node::Int(int_val));
+    }
+
+    pub fn push_fn(&mut self, fn_def: FnDef) {
+        self.stack_push(Node::FnDef(fn_def));
+    }
+
+    /* ********** *
+     * Statements *
+     * ********** */
+
+    pub fn mk_app(&mut self) {
+        let raw_nl = self.stack_pop();
+        let raw_nr = self.stack_pop();
+
+        let (nl, nr) = self.alloc_nodes(raw_nl, raw_nr);
+
+        self.stack_push(Node::App(nl, nr));
+    }
+
+    pub fn eval(&mut self) {
+        // SPJ:321
+
+        if let Node::App(_, _) = self.stack_peek() {
+            let app_head = self.stack_pop();  // copy the node
+            self.stack_enter_new();
+            self.stack_push(app_head);
+            self.unwind();
+            let unwind_result = self.stack_pop();
+            self.stack_exit();
+            self.stack_push(unwind_result);
+        }
+    }
+
+    pub fn unwind(&mut self) {
+        // SPJ:322
+
+        while let Node::App(nl, _) = self.stack_peek() {
+            self.stack_push(**nl);
+        }
+
+        if let Node::FnDef(_) = self.stack_peek() {
+            if let Node::FnDef(fn_def) = self.stack_pop() {
+                let stack_size = self.stack_size();
+                if stack_size >= fn_def.arity {
+                    let new_size = stack_size - fn_def.arity;
+                    let args_spine = self.get_cur_stack_mut().split_off(new_size);
+                    for arg_app in args_spine {
+                        if let Node::App(_, nr) = arg_app {
+                            self.stack_push(*nr);
+                        } else {
+                            unreachable!("Should only be applications on spine");
+                        }
+                    }
+
+                    (fn_def.fn_ref)(self);
+                }
+            } else {
+                unreachable!()
+            }
+        }
     }
 }
 
@@ -200,88 +286,6 @@ impl fmt::Debug for Thunk {
 /* ***************** *
  * Builtin Functions *
  * ***************** */
-
-impl State {
-    pub fn gc_dump(&self) {
-        self.alloc.dump();
-    }
-
-    pub fn stack_dump(&self) {
-        println!("--- BEGIN DUMP ---");
-        for (stack_idx, stack) in self.stacks.iter().enumerate().rev() {
-            println!("\n--- Frame [{}] ---", stack_idx);
-            for (node_idx, node) in stack.iter().enumerate().rev() {
-                println!("[{}] {:?}", node_idx, node);
-            }
-        }
-        println!("\n--- END DUMP ---")
-    }
-
-    pub fn collect(&mut self, mut worklist: Worklist) {
-        self.mark_stack_roots(&mut worklist);
-        self.alloc.collect(worklist);
-    }
-
-    pub fn push_int(&mut self, int_val: i64) {
-        self.stack_push(Node::Int(int_val));
-    }
-
-    pub fn push_fn(&mut self, fn_def: FnDef) {
-        self.stack_push(Node::FnDef(fn_def));
-    }
-
-    pub fn mk_app(&mut self) {
-        let raw_nl = self.stack_pop();
-        let raw_nr = self.stack_pop();
-
-        let (nl, nr) = self.alloc_nodes(raw_nl, raw_nr);
-
-        self.stack_push(Node::App(nl, nr));
-    }
-
-    pub fn eval(&mut self) {
-        // SPJ:321
-
-        if let Node::App(_, _) = self.stack_peek() {
-            let app_head = self.stack_pop();  // copy the node
-            self.stack_enter_new();
-            self.stack_push(app_head);
-            self.unwind();
-            let unwind_result = self.stack_pop();
-            self.stack_exit();
-            self.stack_push(unwind_result);
-        }
-    }
-
-    pub fn unwind(&mut self) {
-        // SPJ:322
-
-        while let Node::App(nl, _) = self.stack_peek() {
-            self.stack_push(**nl);
-        }
-
-        if let Node::FnDef(_) = self.stack_peek() {
-            if let Node::FnDef(fn_def) = self.stack_pop() {
-                let stack_size = self.stack_size();
-                if stack_size >= fn_def.arity {
-                    let new_size = stack_size - fn_def.arity;
-                    let args_spine = self.get_cur_stack_mut().split_off(new_size);
-                    for arg_app in args_spine {
-                        if let Node::App(_, nr) = arg_app {
-                            self.stack_push(*nr);
-                        } else {
-                            unreachable!("Should only be applications on spine");
-                        }
-                    }
-
-                    (fn_def.fn_ref)(self);
-                }
-            } else {
-                unreachable!()
-            }
-        }
-    }
-}
 
 pub static FN_ADD: FnDef = FnDef {
     name: "add",
