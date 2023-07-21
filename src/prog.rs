@@ -26,19 +26,19 @@ pub fn prog(state: &mut State) {
     state.push_int(42);
     state.push_int(9);
     state.push_fn(FN_MUL);
-    state.mk_app();
-    state.mk_app();
+    state.mk_ap();
+    state.mk_ap();
 
     state.push_fn(FN_DIV);
-    state.mk_app();
-    state.mk_app();
+    state.mk_ap();
+    state.mk_ap();
 
     state.push_int(23);
     state.push_fn(FN_ADD);
-    state.mk_app();
-    state.mk_app();
+    state.mk_ap();
+    state.mk_ap();
 
     state.push_fn(FN_SUB);
-    state.mk_app();
-    state.mk_app();
+    state.mk_ap();
+    state.mk_ap();
 }

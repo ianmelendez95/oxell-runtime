@@ -153,7 +153,7 @@ impl State {
      * Statements *
      * ********** */
 
-    pub fn mk_app(&mut self) {
+    pub fn mk_ap(&mut self) {
         let raw_nl = self.stack_pop();
         let raw_nr = self.stack_pop();
 
