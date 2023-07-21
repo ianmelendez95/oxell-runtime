@@ -9,9 +9,9 @@ pub struct State {
 
 #[derive(Clone, Copy)]
 pub struct FnDef {
-    name: &'static str,
-    arity: usize,
-    fn_ref: StateFn
+    pub name: &'static str,
+    pub arity: usize,
+    pub fn_ref: StateFn
 }
 
 #[derive(Clone, Copy)]
@@ -165,14 +165,28 @@ impl State {
     pub fn eval(&mut self) {
         // SPJ:321
 
-        if let Node::App(_, _) = self.stack_peek() {
-            let app_head = self.stack_pop();  // copy the node
-            self.stack_enter_new();
-            self.stack_push(app_head);
-            self.unwind();
-            let unwind_result = self.stack_pop();
-            self.stack_exit();
-            self.stack_push(unwind_result);
+        match self.stack_peek() {
+            Node::FnDef(_) => {
+                if let Node::FnDef(fn_def) = self.stack_pop() {
+                    self.stack_enter_new();
+                    (fn_def.fn_ref)(self);
+                    let unwind_result = self.stack_pop();
+                    self.stack_exit();
+                    self.stack_push(unwind_result);
+                } else {
+                    unreachable!();
+                }
+            },
+            Node::App(_, _) => {
+                let app_head = self.stack_pop();  // copy the node
+                self.stack_enter_new();
+                self.stack_push(app_head);
+                self.unwind();
+                let unwind_result = self.stack_pop();
+                self.stack_exit();
+                self.stack_push(unwind_result);
+            },
+            _ => {}
         }
     }
 

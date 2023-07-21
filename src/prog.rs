@@ -18,7 +18,13 @@
 
 use crate::builtins::*;
 
-pub fn prog(state: &mut State) {
+pub static FN_PROG: FnDef = FnDef {
+    name: "prog",
+    arity: 2,
+    fn_ref: eval_prog
+};
+
+pub fn eval_prog(state: &mut State) {
     state.push_int(13);
 
     state.push_int(2);
@@ -41,4 +47,6 @@ pub fn prog(state: &mut State) {
     state.push_fn(FN_SUB);
     state.mk_ap();
     state.mk_ap();
+
+    state.unwind();
 }
