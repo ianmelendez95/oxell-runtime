@@ -5,15 +5,28 @@ use std::fmt::Debug;
 use std::ops::Deref;
 use std::mem;
 
-pub struct GcAlloc {
-    nodes: Vec<*mut GcObj<Node>>
+pub struct GcState {
+    nodes: Vec<*mut GcObj<dyn Mark>>
 }
 
-pub struct Gc<T> {
+pub struct Gc<T: Mark + ?Sized> {
     ptr: *mut GcObj<T>
 }
 
-impl<T> Gc<T> {
+pub struct GcObj<T: Mark + ?Sized> {
+    marked: bool,
+    value: T
+}
+
+pub trait Mark {
+    fn mark_refs(&self, worklist: &mut Worklist);
+}
+
+pub type Nodelist = Vec<*mut GcObj<dyn Mark>>;
+
+pub type Worklist = Vec<Gc<dyn Mark>>;
+
+impl<T: Mark> Gc<T> {
     pub fn is_marked(&self) -> bool {
         unsafe { 
             (*self.ptr).marked
@@ -27,26 +40,21 @@ impl<T> Gc<T> {
     }
 }
 
-pub struct GcObj<T> {
-    marked: bool,
-    value: T
-}
-
-impl<T: Debug> fmt::Debug for Gc<T> {
+impl<T: Debug + Mark> fmt::Debug for Gc<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.as_ref())
     }
 }
 
-impl<T> Copy for Gc<T> {}
+impl<T: Mark> Copy for Gc<T> {}
 
-impl<T> Clone for Gc<T> {
+impl<T: Mark> Clone for Gc<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T> Deref for Gc<T> {
+impl<T: Mark + ?Sized> Deref for Gc<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -60,30 +68,31 @@ impl fmt::Display for Gc<Node> {
     }
 }
 
-impl<T> AsRef<T> for Gc<T> {
+impl<T: Mark> AsRef<T> for Gc<T> {
     fn as_ref(&self) -> &T {
         unsafe { &(*self.ptr).value }
     }
 }
 
-impl<T> AsMut<T> for Gc<T> {
+impl<T: Mark> AsMut<T> for Gc<T> {
     fn as_mut(&mut self) -> &mut T {
         unsafe { &mut (*self.ptr).value }
     }
 }
 
-pub type Worklist = Vec<Gc<Node>>;
-
-impl GcAlloc {
+impl GcState {
     pub fn new() -> Self {
-        GcAlloc { nodes: Vec::new() }
+        GcState { nodes: Vec::new() }
+    }
+
+    pub fn alloc<T: Mark>(&mut self, value: T) -> Gc<T> {
+        let value_ref = Box::into_raw(Box::new(GcObj { marked: false, value }));
+        self.nodes.push(value_ref);
+        Gc { ptr: value_ref }
     }
 
     pub fn alloc_node(&mut self, item: Node) -> Gc<Node> {
-        // println!("Allocating: {:?}", &item);
-        let node_ref = Box::into_raw(Box::new(GcObj { marked: false, value: item }));
-        self.nodes.push(node_ref);
-        Gc { ptr: node_ref }
+        self.alloc(item)
     }
 
     pub fn collect(&mut self, mut worklist: Worklist) {
@@ -99,7 +108,7 @@ impl GcAlloc {
 
     pub fn sweep(&mut self) {
         unsafe {
-            let mut new_nodes: Vec<*mut GcObj<Node>> = Vec::new();
+            let mut new_nodes: Nodelist = Vec::new();
             while let Some(gc_ref) = self.nodes.pop() {
                 if (&*gc_ref).marked {
                     (&mut *gc_ref).marked = false;
