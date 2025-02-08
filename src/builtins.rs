@@ -3,7 +3,7 @@ use std::fmt::Formatter;
 use crate::gc::*;
 
 pub struct State {
-    alloc: GcAlloc,
+    alloc: GcState,
     pub stacks: Vec<Stack>
 }
 
@@ -24,8 +24,17 @@ pub enum Node {
 }
 
 pub enum Thunk {
-    UThunk(Box<dyn ThunkEval>),
+    UThunk(StateFn),
     EThunk(Node)
+}
+
+impl Mark for Thunk {
+    fn mark_refs(&self, worklist: &mut Worklist) {
+        // TODO - add closure vars
+        if let Thunk::EThunk(node) = self {
+            node.mark_refs(worklist);
+        }
+    }
 }
 
 pub trait ThunkEval {
@@ -39,7 +48,7 @@ pub type StateFn = fn(state: &mut State);
 impl State {
     pub fn new() -> Self {
         let mut state = State {
-            alloc: GcAlloc::new(),
+            alloc: GcState::new(),
             stacks: Vec::new()
         };
         state.stack_enter_new();
@@ -94,7 +103,7 @@ impl State {
         self.alloc.collect(worklist);
     }
 
-    fn mark_stack_roots(&mut self, worklist: &mut Vec<Gc<Node>>) {
+    fn mark_stack_roots(&mut self, worklist: &mut Worklist) {
         for stack in self.stacks.iter_mut() {
             for node in stack.iter_mut() {
                 node.mark_refs(worklist);
@@ -147,6 +156,11 @@ impl State {
 
     pub fn push_fn(&mut self, fn_def: FnDef) {
         self.stack_push(Node::FnDef(fn_def));
+    }
+
+    pub fn push_thunk(&mut self, thunk_fn: StateFn) {
+        // let alloc_thunk = self.alloc_node()
+        // self.stack_push(Node::ThunkRef())
     }
 
     /* ********** *
@@ -220,30 +234,59 @@ impl State {
     }
 }
 
-impl Node {
+impl Mark for Node {
     /// The function to 'mark' any contained GC references.
     /// Sets the `marked` bit on the GC references,
     /// as well as add them to the `worklist`.
-    pub fn mark_refs(&self, worklist: &mut Worklist) {
+    fn mark_refs(&self, worklist: &mut Vec<&dyn Mark>) {
         match self {
             Node::Int(_) => {},
             Node::FnDef(_) => {},
             Node::App(mut nl, mut nr) => {
                 if !nl.is_marked() {
                     nl.mark();
-                    worklist.push(nl);
+                    let x = nl.clone();
+                    worklist.push(x.as_ref());
                 }
 
                 if !nr.is_marked() {
                     nr.mark();
-                    worklist.push(nr);
+                    worklist.push(nr.as_ref());
                 }
             },
             Node::ThunkRef(_) => todo!(),
             Node::NodeRef(mut node_ref) => {
                 if !node_ref.is_marked() {
                     node_ref.mark();
-                    worklist.push(node_ref);
+                    worklist.push(node_ref.as_ref());
+                }
+            },
+        }
+    }
+}
+
+impl Node {
+    fn mark_refs2(&self, worklist: &mut Vec<&dyn Mark>) {
+        match self {
+            Node::Int(_) => {},
+            Node::FnDef(_) => {},
+            Node::App(mut nl, mut nr) => {
+                if !nl.is_marked() {
+                    nl.mark();
+                    let x = nl.clone();
+                    worklist.push(x.as_ref());
+                }
+
+                if !nr.is_marked() {
+                    nr.mark();
+                    worklist.push(nr.as_ref());
+                }
+            },
+            Node::ThunkRef(_) => todo!(),
+            Node::NodeRef(mut node_ref) => {
+                if !node_ref.is_marked() {
+                    node_ref.mark();
+                    worklist.push(node_ref.as_ref());
                 }
             },
         }

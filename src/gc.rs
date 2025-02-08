@@ -9,22 +9,26 @@ pub struct GcState {
     nodes: Vec<*mut GcObj<dyn Mark>>
 }
 
-pub struct Gc<T: Mark + ?Sized> {
+pub fn store_boxed<T>(value: T) -> Box<T> {
+    Box::new(value)
+}
+
+pub struct Gc<T: Mark + ?Sized + 'static> {
     ptr: *mut GcObj<T>
 }
 
-pub struct GcObj<T: Mark + ?Sized> {
+pub struct GcObj<T: Mark + ?Sized + 'static> {
     marked: bool,
     value: T
 }
 
 pub trait Mark {
-    fn mark_refs(&self, worklist: &mut Worklist);
+    fn mark_refs(&self, worklist: &mut Vec<&dyn Mark>);
 }
 
 pub type Nodelist = Vec<*mut GcObj<dyn Mark>>;
 
-pub type Worklist = Vec<Gc<dyn Mark>>;
+pub type Worklist<'a> = Vec<&'a dyn Mark>;
 
 impl<T: Mark> Gc<T> {
     pub fn is_marked(&self) -> bool {
@@ -46,9 +50,9 @@ impl<T: Debug + Mark> fmt::Debug for Gc<T> {
     }
 }
 
-impl<T: Mark> Copy for Gc<T> {}
+impl<T: Mark + ?Sized + 'static> Copy for Gc<T> {}
 
-impl<T: Mark> Clone for Gc<T> {
+impl<T: Mark + ?Sized + 'static> Clone for Gc<T> {
     fn clone(&self) -> Self {
         *self
     }

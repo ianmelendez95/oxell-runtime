@@ -50,3 +50,13 @@ pub fn eval_prog(state: &mut State) {
 
     state.unwind();
 }
+
+
+pub fn eval_e0(state: &mut State) {
+    state.push_int(2);
+    state.push_int(1);
+    state.push_fn(FN_ADD);
+    state.mk_ap();
+    state.mk_ap();
+    state.unwind();
+}
